@@ -46,6 +46,9 @@ impl Into<io::Error> for DBError {
     }
 }
 
+/// Number of DBCol columns.
+pub const NUM_DB_COLS: usize = 50;
+
 #[derive(PartialEq, Debug, Copy, Clone, EnumIter, BorshDeserialize, BorshSerialize, Hash, Eq)]
 pub enum DBCol {
     /// Column to indicate which version of database this is.
@@ -123,9 +126,6 @@ pub enum DBCol {
     ColStateChangesForSplitStates = 49,
 }
 
-// Do not move this line from enum DBCol
-pub const NUM_COLS: usize = 50;
-
 impl std::fmt::Display for DBCol {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         let desc = match self {
@@ -194,8 +194,8 @@ impl DBCol {
 
 // List of columns for which GC should be implemented
 
-pub static SHOULD_COL_GC: [bool; NUM_COLS] = {
-    let mut col_gc = [true; NUM_COLS];
+pub static SHOULD_COL_GC: [bool; NUM_DB_COLS] = {
+    let mut col_gc = [true; NUM_DB_COLS];
     col_gc[DBCol::ColDbVersion as usize] = false; // DB version is unrelated to GC
     col_gc[DBCol::ColBlockMisc as usize] = false;
     // TODO #3488 remove
@@ -219,8 +219,8 @@ pub static SHOULD_COL_GC: [bool; NUM_COLS] = {
 
 // List of columns for which GC may not be executed even in fully operational node
 
-pub static SKIP_COL_GC: [bool; NUM_COLS] = {
-    let mut col_gc = [false; NUM_COLS];
+pub static SKIP_COL_GC: [bool; NUM_DB_COLS] = {
+    let mut col_gc = [false; NUM_DB_COLS];
     // A node may never restarted
     col_gc[DBCol::ColStateHeaders as usize] = true;
     // True until #2515
@@ -230,8 +230,8 @@ pub static SKIP_COL_GC: [bool; NUM_COLS] = {
 
 // List of reference counted columns
 
-pub static IS_COL_RC: [bool; NUM_COLS] = {
-    let mut col_rc = [false; NUM_COLS];
+pub static IS_COL_RC: [bool; NUM_DB_COLS] = {
+    let mut col_rc = [false; NUM_DB_COLS];
     col_rc[DBCol::ColState as usize] = true;
     col_rc[DBCol::ColTransactions as usize] = true;
     col_rc[DBCol::ColReceipts as usize] = true;
@@ -397,7 +397,11 @@ impl RocksDBOptions {
     }
 
     /// Opens the database in read/write mode.
-    pub fn read_write<P: AsRef<std::path::Path>>(self, path: P) -> Result<RocksDB, DBError> {
+    pub fn read_write<P: AsRef<std::path::Path>>(
+        self,
+        path: P,
+        extra_db_memory: usize,
+    ) -> Result<RocksDB, DBError> {
         use strum::IntoEnumIterator;
         let options = self.rocksdb_options.unwrap_or_else(|| rocksdb_options());
         let cf_names = self
@@ -408,7 +412,7 @@ impl RocksDBOptions {
                 .map(|col| {
                     ColumnFamilyDescriptor::new(
                         format!("col{}", col as usize),
-                        rocksdb_column_options(col),
+                        rocksdb_column_options(col, extra_db_memory),
                     )
                 })
                 .collect()
@@ -673,11 +677,15 @@ fn choose_cache_size(col: DBCol) -> usize {
     }
 }
 
-fn rocksdb_column_options(col: DBCol) -> Options {
+fn rocksdb_column_options(col: DBCol, extra_db_memory: usize) -> Options {
     let mut opts = Options::default();
     opts.set_level_compaction_dynamic_level_bytes(true);
-    let cache_size = choose_cache_size(col);
-    opts.set_block_based_table_factory(&rocksdb_block_based_options(cache_size));
+
+    // In config there is `extra_db_memory_bytes` setting. It specifies extra memory tht can be used
+    // to improve database performance. For now, let's simply add the same cache size for each column.
+    // We can add a better way of using extra memory later.
+    let cache_size = choose_cache_size(col) + extra_db_memory / NUM_DB_COLS;
+    opts.set_block_based_table_factory(&rocksdb_block_based_options(cache_size as usize));
     opts.optimize_level_style_compaction(128 * bytesize::MIB as usize);
     opts.set_target_file_size_base(64 * bytesize::MIB);
     opts.set_compression_per_level(&[]);
@@ -705,8 +713,11 @@ impl RocksDB {
         RocksDBOptions::default().read_only(path)
     }
 
-    pub fn new<P: AsRef<std::path::Path>>(path: P) -> Result<Self, DBError> {
-        RocksDBOptions::default().read_write(path)
+    pub fn new<P: AsRef<std::path::Path>>(
+        path: P,
+        extra_db_memory: usize,
+    ) -> Result<Self, DBError> {
+        RocksDBOptions::default().read_write(path, extra_db_memory)
     }
 
     /// Checks if there is enough memory left to perform a write. Not having enough memory left can
@@ -772,7 +783,7 @@ impl Drop for RocksDB {
 
 impl TestDB {
     pub fn new() -> Self {
-        let db: Vec<_> = (0..NUM_COLS).map(|_| HashMap::new()).collect();
+        let db: Vec<_> = (0..NUM_DB_COLS).map(|_| HashMap::new()).collect();
         Self { db: RwLock::new(db) }
     }
 }
@@ -808,7 +819,7 @@ mod tests {
     #[test]
     fn test_prewrite_check() {
         let tmp_dir = tempfile::Builder::new().prefix("_test_prewrite_check").tempdir().unwrap();
-        let store = RocksDB::new(tmp_dir).unwrap();
+        let store = RocksDB::new(tmp_dir, 0).unwrap();
         store.pre_write_check().unwrap()
     }
 
