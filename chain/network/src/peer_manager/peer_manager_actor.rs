@@ -52,6 +52,7 @@ use near_store::Store;
 use rand::seq::{IteratorRandom, SliceRandom};
 use rand::thread_rng;
 use std::cmp;
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -94,6 +95,8 @@ const BROAD_CAST_EDGES_MAX_WORK_ALLOWED: Duration = Duration::from_millis(50);
 const WAIT_FOR_SYNC_DELAY: Duration = Duration::from_millis(1_000);
 /// How often should we update the routing table
 const UPDATE_ROUTING_TABLE_INTERVAL: Duration = Duration::from_millis(1_000);
+/// How often to report bandwidth stats.
+const REPORT_BANDWIDTH_STATS_TRIGGER_INTERVAL: Duration = Duration::from_millis(60_000);
 
 /// Max number of messages we received from peer, and they are in progress, before we start throttling.
 /// Disabled for now (TODO PUT UNDER FEATURE FLAG)
@@ -101,6 +104,10 @@ const MAX_MESSAGES_COUNT: usize = usize::MAX;
 /// Max total size of all messages that are in progress, before we start throttling.
 /// Disabled for now (TODO PUT UNDER FEATURE FLAG)
 const MAX_MESSAGES_TOTAL_SIZE: usize = usize::MAX;
+/// If we received more than `REPORT_BANDWIDTH_THRESHOLD_BYTES` of data from given peer it's bandwidth stats will be reported.
+const REPORT_BANDWIDTH_THRESHOLD_BYTES: usize = 1_000_000;
+/// If we received more than REPORT_BANDWIDTH_THRESHOLD_COUNT` of messages from given peer it's bandwidth stats will be reported.
+const REPORT_BANDWIDTH_THRESHOLD_COUNT: usize = 10_000;
 
 macro_rules! unwrap_or_error(($obj: expr, $error: expr) => (match $obj {
     Ok(result) => result,
@@ -126,6 +133,8 @@ struct ActivePeer {
     connection_established_time: Instant,
     /// Who started connection. Inbound (other) or Outbound (us).
     peer_type: PeerType,
+    /// A helper data structure for limiting reading, reporting stats.
+    throttle_controller: ThrottleController,
 }
 
 /// Actor that manages peers connections.
@@ -356,6 +365,45 @@ impl PeerManagerActor {
         });
     }
 
+    /// Periodically prints bandwidth stats for each peer.
+    fn report_bandwidth_stats_trigger(&mut self, ctx: &mut Context<Self>, every: Duration) {
+        let mut total_bandwidth_used_by_all_peers: usize = 0;
+        let mut total_msg_received_count: usize = 0;
+        let mut max_max_record_num_messages_in_progress: usize = 0;
+        for (peer_id, active_peer) in self.active_peers.iter_mut() {
+            let bandwidth_used = active_peer.throttle_controller.consume_bandwidth_used();
+            let msg_received_count = active_peer.throttle_controller.consume_msg_seen();
+            let max_record =
+                active_peer.throttle_controller.consume_max_record_num_messages_in_progress();
+
+            if bandwidth_used > REPORT_BANDWIDTH_THRESHOLD_BYTES
+                || total_msg_received_count > REPORT_BANDWIDTH_THRESHOLD_COUNT
+            {
+                warn!(
+                    message = "Peer bandwidth exceeded threshold",
+                    ?peer_id,
+                    bandwidth_used,
+                    msg_received_count
+                );
+            }
+            total_bandwidth_used_by_all_peers += bandwidth_used;
+            total_msg_received_count += msg_received_count;
+            max_max_record_num_messages_in_progress =
+                max(max_max_record_num_messages_in_progress, max_record);
+        }
+
+        info!(
+            message = "Bandwidth stats",
+            total_bandwidth_used_by_all_peers,
+            total_msg_received_count,
+            max_max_record_num_messages_in_progress
+        );
+
+        near_performance_metrics::actix::run_later(ctx, every, move |act, ctx| {
+            act.report_bandwidth_stats_trigger(ctx, every);
+        });
+    }
+
     /// Receives list of edges that were verified, in a trigger every 20ms, and adds them to
     /// the routing table.
     fn broadcast_validated_edges_trigger(
@@ -442,7 +490,7 @@ impl PeerManagerActor {
         peer_type: PeerType,
         addr: Addr<PeerActor>,
         ctx: &mut Context<Self>,
-        throttle_controller: Option<ThrottleController>,
+        throttle_controller: ThrottleController,
     ) {
         let throttle_controller_clone = throttle_controller.clone();
         near_performance_metrics::actix::run_later(ctx, WAIT_FOR_SYNC_DELAY, move |act, ctx| {
@@ -450,12 +498,17 @@ impl PeerManagerActor {
                 act.routing_table_addr
                     .send(ActixMessageWrapper::new_without_size(
                         RoutingTableMessages::AddPeerIfMissing(peer_id, None),
-                        throttle_controller,
+                        Some(throttle_controller),
                     ))
                     .into_actor(act)
                     .map(move |response, act, ctx| match response.map(|x| x.into_inner()) {
                         Ok(RoutingTableMessagesResponse::AddPeerResponse { seed }) => act
-                            .start_routing_table_syncv2(ctx, addr, seed, throttle_controller_clone),
+                            .start_routing_table_syncv2(
+                                ctx,
+                                addr,
+                                seed,
+                                Some(throttle_controller_clone),
+                            ),
                         _ => error!(target: "network", "expected AddIbfSetResponse"),
                     })
                     .spawn(ctx);
@@ -499,8 +552,8 @@ impl PeerManagerActor {
         peer_type: PeerType,
         addr: Addr<PeerActor>,
         peer_protocol_version: ProtocolVersion,
+        throttle_controller: ThrottleController,
         ctx: &mut Context<Self>,
-        throttle_controller: Option<ThrottleController>,
     ) {
         #[cfg(feature = "protocol_feature_routing_exchange_algorithm")]
         let peer_id = full_peer_info.peer_info.id.clone();
@@ -535,6 +588,7 @@ impl PeerManagerActor {
                 last_time_received_message: Clock::instant(),
                 connection_established_time: Clock::instant(),
                 peer_type,
+                throttle_controller: throttle_controller.clone(),
             },
         );
 
@@ -560,7 +614,7 @@ impl PeerManagerActor {
             act.routing_table_addr
                 .send(ActixMessageWrapper::new_without_size(
                     RoutingTableMessages::RequestRoutingTable,
-                    throttle_controller,
+                    Some(throttle_controller),
                 ))
                 .into_actor(act)
                 .map(move |response, act, ctx| match response.map(|r| r.into_inner()) {
@@ -1559,6 +1613,9 @@ impl Actor for PeerManagerActor {
 
         // Periodically updates routing table and prune edges that are no longer reachable.
         self.update_routing_table_trigger(ctx, UPDATE_ROUTING_TABLE_INTERVAL);
+
+        // Periodically prints bandwidth stats for each peer.
+        self.report_bandwidth_stats_trigger(ctx, REPORT_BANDWIDTH_STATS_TRIGGER_INTERVAL);
     }
 
     /// Try to gracefully disconnect from active peers.
@@ -1954,7 +2011,7 @@ impl PeerManagerActor {
                 PeerType::Inbound,
                 addr,
                 ctx,
-                throttle_controller,
+                throttle_controller.unwrap(),
             );
         }
     }
@@ -2081,7 +2138,6 @@ impl PeerManagerActor {
         &mut self,
         msg: RegisterPeer,
         ctx: &mut Context<Self>,
-        throttle_controller: Option<ThrottleController>,
     ) -> RegisterPeerResponse {
         #[cfg(feature = "delay_detector")]
         let _d = delay_detector::DelayDetector::new("consolidate".into());
@@ -2159,8 +2215,8 @@ impl PeerManagerActor {
             msg.peer_type,
             msg.actor,
             msg.peer_protocol_version,
+            msg.throttle_controller,
             ctx,
-            throttle_controller,
         );
 
         RegisterPeerResponse::Accept(edge_info_response)
@@ -2251,11 +2307,9 @@ impl PeerManagerActor {
                 ))
             }
             PeerManagerMessageRequest::RegisterPeer(msg) => {
-                PeerManagerMessageResponse::RegisterPeerResponse(self.handle_msg_register_peer(
-                    msg,
-                    ctx,
-                    throttle_controller,
-                ))
+                PeerManagerMessageResponse::RegisterPeerResponse(
+                    self.handle_msg_register_peer(msg, ctx),
+                )
             }
             PeerManagerMessageRequest::PeersRequest(msg) => {
                 PeerManagerMessageResponse::PeerRequestResult(
