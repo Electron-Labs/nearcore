@@ -12,7 +12,9 @@ use crate::routing::edge_validator_actor::EdgeValidatorHelper;
 use crate::routing::routing::{
     PeerRequestResult, RoutingTableView, DELETE_PEERS_AFTER_TIME, MAX_NUM_PEERS,
 };
-use crate::routing::routing_table_actor::Prune;
+use crate::routing::routing_table_actor::{
+    Prune, RoutingTableActor, RoutingTableMessages, RoutingTableMessagesResponse,
+};
 use crate::stats::metrics;
 use crate::stats::metrics::NetworkMetrics;
 #[cfg(feature = "test_features")]
@@ -25,7 +27,7 @@ use crate::types::{
 };
 #[cfg(feature = "protocol_feature_routing_exchange_algorithm")]
 use crate::types::{RoutingSyncV2, RoutingVersion2};
-use crate::{PeerInfo, RoutingTableActor, RoutingTableMessages, RoutingTableMessagesResponse};
+use crate::PeerInfo;
 use actix::{
     Actor, ActorFuture, Addr, Arbiter, AsyncContext, Context, ContextFutureSpawner, Handler,
     Recipient, Running, StreamHandler, WrapFuture,
@@ -479,7 +481,9 @@ impl PeerManagerActor {
             .into_actor(self)
             .map(move |response, _act, _ctx| match response.map(|r| r.into_inner()) {
                 Ok(RoutingTableMessagesResponse::StartRoutingTableSyncResponse(response)) => {
-                    let _ = addr.do_send(SendMessage { message: response });
+                    let _ = addr.do_send(SendMessage {
+                        message: crate::types::PeerMessage::RoutingTableSyncV2(response),
+                    });
                 }
                 _ => error!(target: "network", "expected StartRoutingTableSyncResponse"),
             })

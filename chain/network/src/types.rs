@@ -58,7 +58,7 @@ impl std::error::Error for HandshakeFailureReason {}
 #[derive(BorshSerialize, PartialEq, Eq, Clone, Debug)]
 /// Structure representing handshake between peers.
 /// This replaces deprecated handshake `HandshakeV2`.
-pub struct Handshake {
+pub(crate) struct Handshake {
     /// Current protocol version.
     pub(crate) protocol_version: u32,
     /// Oldest supported protocol version.
@@ -163,7 +163,7 @@ impl From<HandshakeAutoDes> for Handshake {
 #[cfg_attr(feature = "deepsize_feature", derive(DeepSizeOf))]
 #[derive(BorshSerialize, PartialEq, Eq, Clone, Debug)]
 /// Deprecated handshake for protocol versions in range `34..=38`.
-pub struct HandshakeV2 {
+pub(crate) struct HandshakeV2 {
     /// Protocol version defined in `PROTOCOL_VERSION`
     pub(crate) protocol_version: u32,
     /// Oldest supported protocol version.
@@ -309,7 +309,7 @@ impl SyncData {
 )]
 // TODO(#1313): Use Box
 #[allow(clippy::large_enum_variant)]
-pub enum PeerMessage {
+pub(crate) enum PeerMessage {
     Handshake(Handshake),
     HandshakeFailure(PeerInfo, HandshakeFailureReason),
     /// When a failed nonce is used by some peer, this message is sent back as evidence.

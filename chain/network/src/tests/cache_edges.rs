@@ -1,6 +1,6 @@
+use crate::routing::routing_table_actor::RoutingTableActor;
 use crate::routing::{Edge, EdgeType, Prune, DELETE_PEERS_AFTER_TIME, SAVE_PEERS_MAX_TIME};
 use crate::test_utils::random_peer_id;
-use crate::RoutingTableActor;
 use actix::System;
 use borsh::de::BorshDeserialize;
 use near_crypto::Signature;
