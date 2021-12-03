@@ -4,7 +4,7 @@ pub use crate::routing::routing_table_actor::RoutingTableActor;
 #[cfg(feature = "test_features")]
 pub use crate::routing::routing_table_actor::{RoutingTableMessages, RoutingTableMessagesResponse};
 #[cfg(feature = "test_features")]
-use crate::stats::metrics;
+pub use crate::stats::metrics::RECEIVED_INFO_ABOUT_ITSELF;
 // TODO(#5307)
 pub use near_network_primitives::types::PeerInfo;
 
@@ -12,7 +12,7 @@ pub(crate) mod common;
 mod peer;
 mod peer_manager;
 pub mod routing;
-mod stats;
+pub(crate) mod stats;
 pub mod test_utils;
 #[cfg(test)]
 mod tests;

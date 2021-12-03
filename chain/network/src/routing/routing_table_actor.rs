@@ -1,9 +1,9 @@
 use crate::common::message_wrapper::{ActixMessageResponse, ActixMessageWrapper};
-use crate::metrics;
 use crate::routing::edge::{Edge, EdgeType};
 use crate::routing::edge_validator_actor::EdgeValidatorActor;
 use crate::routing::routing::{Graph, SAVE_PEERS_MAX_TIME};
-use crate::types::{RoutingSyncV2, StopMsg, ValidateEdgeList};
+use crate::stats::metrics;
+use crate::types::{StopMsg, ValidateEdgeList};
 use actix::dev::MessageResponse;
 use actix::{
     Actor, ActorFuture, Addr, Context, ContextFutureSpawner, Handler, Message, Running,
@@ -507,7 +507,7 @@ pub enum RoutingTableMessagesResponse {
     },
     AddVerifiedEdgesResponse(Vec<Edge>),
     #[cfg(feature = "protocol_feature_routing_exchange_algorithm")]
-    StartRoutingTableSyncResponse(RoutingSyncV2),
+    StartRoutingTableSyncResponse(crate::types::RoutingSyncV2),
     RoutingTableUpdateResponse {
         /// PeerManager maintains list of local edges. We will notify `PeerManager`
         /// to remove those edges.
