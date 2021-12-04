@@ -1,7 +1,7 @@
 use crate::common::message_wrapper::{ActixMessageResponse, ActixMessageWrapper};
 use crate::peer::codec::Codec;
 use crate::peer::peer_actor::PeerActor;
-use crate::peer_manager::peer_store::{PeerStore, TrustLevel};
+use crate::peer_manager::peer_store::{KnownPeerState, KnownPeerStatus, PeerStore, TrustLevel};
 #[cfg(all(
     feature = "test_features",
     feature = "protocol_feature_routing_exchange_algorithm"
@@ -33,11 +33,10 @@ use actix::{
 use futures::task::Poll;
 use futures::{future, Stream, StreamExt};
 use near_network_primitives::types::{
-    AccountOrPeerIdOrHash, Ban, BlockedPorts, InboundTcpConnect, KnownPeerState, KnownPeerStatus,
-    KnownProducer, NetworkConfig, NetworkViewClientMessages, NetworkViewClientResponses,
-    OutboundTcpConnect, PeerIdOrHash, PeerManagerRequest, PeerType, Ping, Pong, QueryPeerStats,
-    RawRoutedMessage, ReasonForBan, RoutedMessage, RoutedMessageBody, RoutedMessageFrom,
-    StateResponseInfo,
+    AccountOrPeerIdOrHash, Ban, BlockedPorts, InboundTcpConnect, KnownProducer, NetworkConfig,
+    NetworkViewClientMessages, NetworkViewClientResponses, OutboundTcpConnect, PeerIdOrHash,
+    PeerManagerRequest, PeerType, Ping, Pong, QueryPeerStats, RawRoutedMessage, ReasonForBan,
+    RoutedMessage, RoutedMessageBody, RoutedMessageFrom, StateResponseInfo,
 };
 use near_performance_metrics::framed_write::FramedWrite;
 use near_performance_metrics_macros::perf;
