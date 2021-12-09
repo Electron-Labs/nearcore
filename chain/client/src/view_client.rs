@@ -247,10 +247,10 @@ impl ViewClientActor {
             QueryRequest::CallFunction { account_id, .. } => account_id,
             QueryRequest::ViewCode { account_id, .. } => account_id,
         };
-        let shard_id = self
-            .runtime_adapter
-            .account_id_to_shard_id(account_id, header.epoch_id())
-            .map_err(|err| QueryError::InternalError { error_message: err.to_string() })?;
+        let shard_id =
+            self.runtime_adapter
+                .account_id_to_shard_id(account_id, header.epoch_id())
+                .map_err(|err| QueryError::InternalError { error_message: err.to_string() })?;
         let shard_uid = self
             .runtime_adapter
             .shard_id_to_uid(shard_id, header.epoch_id())

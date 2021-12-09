@@ -1516,12 +1516,7 @@ impl ShardsManager {
     }
 
     fn need_receipt(&self, prev_block_hash: &CryptoHash, shard_id: ShardId) -> bool {
-        self.cares_about_shard_this_or_next_epoch(
-            self.me.as_ref(),
-            prev_block_hash,
-            shard_id,
-            true,
-        )
+        self.cares_about_shard_this_or_next_epoch(self.me.as_ref(), prev_block_hash, shard_id, true)
     }
 
     fn need_part(&self, prev_block_hash: &CryptoHash, part_ord: u64) -> Result<bool, Error> {

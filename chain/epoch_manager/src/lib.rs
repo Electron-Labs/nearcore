@@ -1914,10 +1914,7 @@ mod tests2 {
         check_fishermen(epoch_info, &[]);
         check_stake_change(epoch_info, vec![("test2".parse().unwrap(), amount_staked)]);
         check_kickout(epoch_info, &[]);
-        check_reward(
-            epoch_info,
-            vec![("test2".parse().unwrap(), 0), ("near".parse().unwrap(), 0)],
-        );
+        check_reward(epoch_info, vec![("test2".parse().unwrap(), 0), ("near".parse().unwrap(), 0)]);
     }
 
     #[test]

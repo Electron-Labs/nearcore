@@ -453,10 +453,8 @@ impl Chain {
                     )?);
                     store_update.save_block_header(genesis.header().clone())?;
                     store_update.save_block(genesis.clone());
-                    store_update.save_block_extra(
-                        genesis.hash(),
-                        BlockExtra { challenges_result: vec![] },
-                    );
+                    store_update
+                        .save_block_extra(genesis.hash(), BlockExtra { challenges_result: vec![] });
 
                     for (chunk_header, state_root) in
                         genesis.chunks().iter().zip(state_roots.iter())
@@ -996,9 +994,9 @@ impl Chain {
                 // Add validator proposals for given header.
                 let last_finalized_height =
                     chain_update.chain_store_update.get_block_height(header.last_final_block())?;
-                let epoch_manager_update = chain_update.runtime_adapter.add_validator_proposals(
-                    BlockHeaderInfo::new(header, last_finalized_height),
-                )?;
+                let epoch_manager_update = chain_update
+                    .runtime_adapter
+                    .add_validator_proposals(BlockHeaderInfo::new(header, last_finalized_height))?;
                 chain_update.chain_store_update.merge(epoch_manager_update);
                 chain_update.commit()?;
             }
@@ -3508,8 +3506,7 @@ impl<'a> ChainUpdate<'a> {
                     .map_err(|e| {
                         debug!(target: "chain", "Failed to validate chunk extra: {:?}", e);
                         byzantine_assert!(false);
-                        match self.create_chunk_state_challenge(prev_block, block, chunk_header)
-                        {
+                        match self.create_chunk_state_challenge(prev_block, block, chunk_header) {
                             Ok(chunk_state) => {
                                 Error::from(ErrorKind::InvalidChunkState(Box::new(chunk_state)))
                             }
@@ -4131,9 +4128,9 @@ impl<'a> ChainUpdate<'a> {
             self.chain_store_update.get_block_header(last_final_block)?.height()
         };
 
-        let epoch_manager_update = self.runtime_adapter.add_validator_proposals(
-            BlockHeaderInfo::new(block.header(), last_finalized_height),
-        )?;
+        let epoch_manager_update = self
+            .runtime_adapter
+            .add_validator_proposals(BlockHeaderInfo::new(block.header(), last_finalized_height))?;
         self.chain_store_update.merge(epoch_manager_update);
 
         // Add validated block to the db, even if it's not the canonical fork.
@@ -4287,9 +4284,7 @@ impl<'a> ChainUpdate<'a> {
             }
         }
 
-        if header.chunk_mask().len() as u64
-            != self.runtime_adapter.num_shards(header.epoch_id())?
-        {
+        if header.chunk_mask().len() as u64 != self.runtime_adapter.num_shards(header.epoch_id())? {
             return Err(ErrorKind::InvalidChunkMask.into());
         }
 
@@ -4732,8 +4727,7 @@ impl<'a> ChainUpdate<'a> {
         debug!(target: "chain", "Verifying challenges {:?}", challenges);
         let mut result = vec![];
         for challenge in challenges.iter() {
-            match validate_challenge(&*self.runtime_adapter, epoch_id, prev_block_hash, challenge)
-            {
+            match validate_challenge(&*self.runtime_adapter, epoch_id, prev_block_hash, challenge) {
                 Ok((hash, account_ids)) => {
                     let is_double_sign = match challenge.body {
                         // If it's double signed block, we don't invalidate blocks just slash.

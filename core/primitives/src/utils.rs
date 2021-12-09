@@ -246,13 +246,7 @@ pub fn create_action_hash(
     // Action hash uses the same input as a new receipt ID, so to avoid hash conflicts we use the
     // salt starting from the `u64` going backward.
     let salt = u64::max_value() - action_index as u64;
-    create_hash_upgradable(
-        protocol_version,
-        &receipt.receipt_id,
-        prev_block_hash,
-        block_hash,
-        salt,
-    )
+    create_hash_upgradable(protocol_version, &receipt.receipt_id, prev_block_hash, block_hash, salt)
 }
 
 /// Creates a new `data_id` from a given action hash, a block hash and a data index.
