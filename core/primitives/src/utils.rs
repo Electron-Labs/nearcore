@@ -210,8 +210,8 @@ pub fn create_receipt_id_from_transaction(
     create_hash_upgradable(
         protocol_version,
         &signed_transaction.get_hash(),
-        &prev_block_hash,
-        &block_hash,
+        prev_block_hash,
+        block_hash,
         0,
     )
 }
@@ -228,8 +228,8 @@ pub fn create_receipt_id_from_receipt(
     create_hash_upgradable(
         protocol_version,
         &receipt.receipt_id,
-        &prev_block_hash,
-        &block_hash,
+        prev_block_hash,
+        block_hash,
         receipt_index as u64,
     )
 }
@@ -249,8 +249,8 @@ pub fn create_action_hash(
     create_hash_upgradable(
         protocol_version,
         &receipt.receipt_id,
-        &prev_block_hash,
-        &block_hash,
+        prev_block_hash,
+        block_hash,
         salt,
     )
 }
@@ -266,9 +266,9 @@ pub fn create_data_id(
 ) -> CryptoHash {
     create_hash_upgradable(
         protocol_version,
-        &action_hash,
-        &prev_block_hash,
-        &block_hash,
+        action_hash,
+        prev_block_hash,
+        block_hash,
         data_index as u64,
     )
 }
