@@ -298,15 +298,23 @@ pub fn alt_bn128_g1_sum(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
         .map(|e| (e.0, e.1 .0))
         .collect::<Vec<_>>();
 
-    let mut acc = G1::zero();
-    for &(sign, e) in items.iter() {
+    // let mut acc = G1::zero();
+    // // here you have to implement the fold
+    // for &(sign, e) in items.iter() {
+    //     if sign {
+    //         acc = acc - e;
+    //     } else {
+    //         acc = acc + e;
+    //     }
+    // }
+    let ResAcc = items.iter().fold(G1::zero(), |acc, &(sign, e)| {
         if sign {
-            acc = acc - e;
+            acc -= e;
         } else {
-            acc = acc + e;
+            acc += e;
         }
-    }
-    let result = WrapG1(acc)
+    });
+    let result = WrapG1(ResAcc)
         .try_to_vec()
         .map_err(|e| HostError::AltBn128SerializationError { msg: format!("{}", e) })?;
     Ok(result)
