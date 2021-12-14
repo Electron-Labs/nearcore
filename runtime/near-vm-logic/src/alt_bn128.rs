@@ -345,7 +345,7 @@ pub fn alt_bn128_g1_sum(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
 /// assert!(pairs_result);
 ///
 /// ```
-pub fn alt_bn128_pairing_check(data: &[u8]) -> crate::logic::Result<bool> {
+pub fn alt_bn128_pairing_check(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
     let items = <Vec<(WrapG1, WrapG2)>>::try_from_slice(data)
         .map_err(|e| HostError::AltBn128DeserializationError { msg: format!("{}", e) })?
         .into_iter()
