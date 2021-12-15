@@ -298,15 +298,6 @@ pub fn alt_bn128_g1_sum(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
         .map(|e| (e.0, e.1 .0))
         .collect::<Vec<_>>();
 
-    // let mut acc = G1::zero();
-    // // here you have to implement the fold
-    // for &(sign, e) in items.iter() {
-    //     if sign {
-    //         acc = acc - e;
-    //     } else {
-    //         acc = acc + e;
-    //     }
-    // }
     let ResAcc = items.iter().fold(G1::zero(), |acc, &(sign, e)| {
         if sign {
             acc -= e;
@@ -359,5 +350,9 @@ pub fn alt_bn128_pairing_check(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
         .into_iter()
         .map(|e| (e.0 .0, e.1 .0))
         .collect::<Vec<_>>();
-    Ok(pairing_batch(&items) == Gt::one())
+      match pairing_batch(&items) == Gt::one() {
+          true => Ok(vec![1]),
+          false => Ok(vec![0])
+      }
+    
 }
