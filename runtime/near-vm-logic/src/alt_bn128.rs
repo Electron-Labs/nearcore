@@ -139,20 +139,23 @@ impl BorshDeserialize for WrapFq2 {
         Ok(WrapFq2(Fq2::new(re, im)))
     }
 }
-
+fn serialize<W: Write, T>( writer: &mut W, jac: Option<T>) -> Result<(), io::Error> {
+    match jac {
+        Some(p) => {
+            WrapFq(p.x()).serialize(writer)?;
+            WrapFq(p.y()).serialize(writer)?;
+        }
+        None => {
+            WrapFq(Fq::zero()).serialize(writer)?;
+            WrapFq(Fq::zero()).serialize(writer)?;
+        }
+    }
+    Ok(())
+}
+// AffineG1::from_jacobian(self.0)
 impl BorshSerialize for WrapG1 {
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), io::Error> {
-        match AffineG1::from_jacobian(self.0) {
-            Some(p) => {
-                WrapFq(p.x()).serialize(writer)?;
-                WrapFq(p.y()).serialize(writer)?;
-            }
-            None => {
-                WrapFq(Fq::zero()).serialize(writer)?;
-                WrapFq(Fq::zero()).serialize(writer)?;
-            }
-        }
-        Ok(())
+       serialize<AffineG1>(writer, AffineG1::from_jacobian(self.0))
     }
 }
 
@@ -179,17 +182,7 @@ impl BorshDeserialize for WrapG1 {
 
 impl BorshSerialize for WrapG2 {
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), io::Error> {
-        match AffineG2::from_jacobian(self.0) {
-            Some(p) => {
-                WrapFq2(p.x()).serialize(writer)?;
-                WrapFq2(p.y()).serialize(writer)?;
-            }
-            None => {
-                WrapFq2(Fq2::zero()).serialize(writer)?;
-                WrapFq2(Fq2::zero()).serialize(writer)?;
-            }
-        }
-        Ok(())
+       serialize<AffineG2>(writer, AffineG2::from_jacobian(self.0))
     }
 }
 
