@@ -55,12 +55,7 @@ pub fn alt_bn128_g1_multiexp_sublinear_complexity_estimate(n_bytes: u64, discoun
         let l = std::cmp::min(ilog2(n), 15);
         (n * (l + 3) + (1 << (1 + l))) * C / ((l + 4) * (l + 5))
     };
-
-    if res < B * n + discount {
-        return 0;
-    }
-    res -= B * n + discount;
-    res
+    res.saturating_sub(B*n+discount)
 }
 
 #[derive(Copy, Clone)]
@@ -158,6 +153,7 @@ impl BorshSerialize for WrapG1 {
        serialize<AffineG1>(writer, AffineG1::from_jacobian(self.0))
     }
 }
+
 
 impl BorshDeserialize for WrapG1 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, io::Error> {
