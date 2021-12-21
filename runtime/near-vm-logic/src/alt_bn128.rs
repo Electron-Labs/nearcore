@@ -51,6 +51,7 @@ pub fn alt_bn128_g1_multiexp_sublinear_complexity_estimate(n_bytes: u64, discoun
     let mut res = A + if n == 0 {
         0
     } else {
+        // changed this to ell from l 
         // set linear complexity growth for n > 32768
         let ell = std::cmp::min(ilog2(n), 15);
         (n * (ell + 3) + (1 << (1 + ell))) * C / ((ell + 4) * (ell + 5))
