@@ -3158,6 +3158,7 @@ dependencies = [
  "near-primitives",
  "near-primitives-core",
  "near-vm-errors",
+ "num-integer",
  "ripemd160",
  "serde",
  "serde_json",
