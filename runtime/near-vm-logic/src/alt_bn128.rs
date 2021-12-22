@@ -2,6 +2,7 @@ use bn::arith::U256;
 use bn::{pairing_batch, AffineG1, AffineG2, Fq, Fq2, Fr, Group, GroupError, Gt, G1, G2};
 use borsh::{BorshDeserialize, BorshSerialize};
 use std::io::{self, Error, ErrorKind, Write};
+use num_integer::{div_ceil};
 
 use crate::HostError;
 
@@ -47,7 +48,10 @@ pub fn alt_bn128_g1_multiexp_sublinear_complexity_estimate(n_bytes: u64, discoun
 
     // A+C*n/(log2(n)+4) - B*n - discount
 
-    let n = (n_bytes + MULTIEXP_ITEM_SIZE - 1) / MULTIEXP_ITEM_SIZE;
+    // let n = (n_bytes + MULTIEXP_ITEM_SIZE - 1) / MULTIEXP_ITEM_SIZE;
+    let n = n_bytes;
+    n.div_ceil(MULTIEXP_ITEM_SIZE);
+    
     
     let mut res = A + if n == 0 {
         0
