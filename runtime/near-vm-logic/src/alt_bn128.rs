@@ -101,39 +101,36 @@ impl BorshDeserialize for WrapFq {
 
 impl BorshSerialize for WrapFq2 {
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), Error> {
-        WrapFq(self.0.real()).serialize(writer)?;
-        WrapFq(self.0.imaginary()).serialize(writer)
+        WrapFq(self.0.imaginary()).serialize(writer)?;
+        WrapFq(self.0.real()).serialize(writer)
     }
 }
 
 impl BorshDeserialize for WrapFq2 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, Error> {
-        let re = WrapFq::deserialize(buf)?.0;
         let im = WrapFq::deserialize(buf)?.0;
+        let re = WrapFq::deserialize(buf)?.0;
 
         Ok(WrapFq2(Fq2::new(re, im)))
     }
 }
-fn serialize<W: Write, T>( writer: &mut W, jac: Option<T>) -> Result<(), io::Error> {
-    match jac {
-        Some(p) => {
-            WrapFq(p.x()).serialize(writer)?;
-            WrapFq(p.y()).serialize(writer)?;
-        }
-        None => {
-            WrapFq(Fq::zero()).serialize(writer)?;
-            WrapFq(Fq::zero()).serialize(writer)?;
-        }
-    }
-    Ok(())
-}
-// AffineG1::from_jacobian(self.0)
+
+
 impl BorshSerialize for WrapG1 {
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), io::Error> {
-       serialize::<W, AffineG1>(writer, AffineG1::from_jacobian(self.0))
+        match AffineG1::from_jacobian(self.0) {
+            Some(p) => {
+                WrapFq(p.x()).serialize(writer)?;
+                WrapFq(p.y()).serialize(writer)?;
+            }
+            None => {
+                WrapFq(Fq::zero()).serialize(writer)?;
+                WrapFq(Fq::zero()).serialize(writer)?;
+            }
+        }
+        Ok(())
     }
 }
-
 
 impl BorshDeserialize for WrapG1 {
     fn deserialize(buf: &mut &[u8]) -> Result<Self, io::Error> {
@@ -158,7 +155,17 @@ impl BorshDeserialize for WrapG1 {
 
 impl BorshSerialize for WrapG2 {
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), io::Error> {
-       serialize::<W, AffineG2>(writer, AffineG2::from_jacobian(self.0))
+        match AffineG2::from_jacobian(self.0) {
+            Some(p) => {
+                WrapFq2(p.x()).serialize(writer)?;
+                WrapFq2(p.y()).serialize(writer)?;
+            }
+            None => {
+                WrapFq2(Fq2::zero()).serialize(writer)?;
+                WrapFq2(Fq2::zero()).serialize(writer)?;
+            }
+        }
+        Ok(())
     }
 }
 
