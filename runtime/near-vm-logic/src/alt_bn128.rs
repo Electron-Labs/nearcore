@@ -1,8 +1,9 @@
+use borsh::{BorshDeserialize, BorshSerialize};
+use near_primitives::checked_feature;
+use num_integer::div_ceil;
+use std::io::{self, Error, ErrorKind, Write};
 use zeropool_bn::arith::U256;
 use zeropool_bn::{pairing_batch, AffineG1, AffineG2, Fq, Fq2, Fr, Group, GroupError, Gt, G1, G2};
-use borsh::{BorshDeserialize, BorshSerialize};
-use std::io::{self, Error, ErrorKind, Write};
-use num_integer::div_ceil;
 
 use crate::HostError;
 
@@ -10,10 +11,10 @@ const POINT_IS_NOT_ON_THE_CURVE: &str = "point is not on the curve";
 const POINT_IS_NOT_IN_THE_SUBGROUP: &str = "point is not in the subgroup";
 const NOT_IN_FIELD: &str = "integer is not less than modulus";
 
-
-#[inline] pub fn ilog2( n: u64) -> u64{
+#[inline]
+pub fn ilog2(n: u64) -> u64 {
     assert!(n > 0);
-    63-n.leading_zeros() as u64
+    63 - n.leading_zeros() as u64
 }
 
 pub fn alt_bn128_g1_multiexp_sublinear_complexity_estimate(n_bytes: u64, discount: u64) -> u64 {
@@ -27,15 +28,38 @@ pub fn alt_bn128_g1_multiexp_sublinear_complexity_estimate(n_bytes: u64, discoun
 
     // let n = (n_bytes + MULTIEXP_ITEM_SIZE - 1) / MULTIEXP_ITEM_SIZE;
     let n = num_integer::div_ceil(n_bytes, MULTIEXP_ITEM_SIZE);
-    let mut res = A + if n == 0 {
+    let temp = if n == 0 {
         0
     } else {
-        // changed this to ell from l 
-        // set linear complexity growth for n > 32768
         let ell = std::cmp::min(ilog2(n), 15);
-        (n * (ell + 3) + (1 << (1 + ell))) * C / ((ell + 4) * (ell + 5))
+        let sftAdd1 = 1 << u64::checked_add(ell, 1).ok_or(HostError::IntegerOverflow).unwrap();
+        let add3 = u64::checked_add(ell, 3).ok_or(HostError::IntegerOverflow).unwrap();
+        let add4 = u64::checked_add(ell, 4).ok_or(HostError::IntegerOverflow).unwrap();
+        let add5 = u64::checked_add(ell, 5).ok_or(HostError::IntegerOverflow).unwrap();
+        let numrator = u64::checked_mul(
+            u64::checked_add(
+                u64::checked_mul(n, add3).ok_or(HostError::IntegerOverflow).unwrap(),
+                sftAdd1,
+            )
+            .ok_or(HostError::IntegerOverflow)
+            .unwrap(),
+            C,
+        )
+        .ok_or(HostError::IntegerOverflow)
+        .unwrap();
+        let denomenator = u64::checked_mul(add4, add5).ok_or(HostError::IntegerOverflow).unwrap();
+        u64::checked_div(numrator, denomenator).ok_or(HostError::IntegerOverflow).unwrap()
     };
-    res.saturating_sub(B*n+discount)
+    let mut res = A + temp;
+
+    res.saturating_sub(
+        u64::checked_add(
+            u64::checked_mul(B, n).ok_or(HostError::IntegerOverflow).unwrap(),
+            discount,
+        )
+        .ok_or(HostError::IntegerOverflow)
+        .unwrap(),
+    )
 }
 
 #[derive(Copy, Clone)]
@@ -114,7 +138,6 @@ impl BorshDeserialize for WrapFq2 {
         Ok(WrapFq2(Fq2::new(re, im)))
     }
 }
-
 
 impl BorshSerialize for WrapG1 {
     fn serialize<W: Write>(&self, writer: &mut W) -> Result<(), io::Error> {
@@ -326,9 +349,8 @@ pub fn alt_bn128_pairing_check(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
         .into_iter()
         .map(|e| (e.0 .0, e.1 .0))
         .collect::<Vec<_>>();
-      match pairing_batch(&items) == Gt::one() {
-          true => Ok(vec![1]),
-          false => Ok(vec![0])
-      }
-    
+    match pairing_batch(&items) == Gt::one() {
+        true => Ok(vec![1]),
+        false => Ok(vec![0]),
+    }
 }
