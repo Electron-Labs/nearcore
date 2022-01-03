@@ -252,10 +252,15 @@ pub fn alt_bn128_g1_multiexp(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
         .into_iter()
         .map(|e| (e.0 .0, e.1 .0))
         .collect::<Vec<_>>();
-    let result = WrapG1(G1::multiexp(&items))
-        .try_to_vec()
-        .map_err(|e| HostError::AltBn128SerializationError { msg: format!("{}", e) })?;
-    Ok(result)
+    
+    if items.len() < 20 {
+        let result = WrapG1(G1::multiexp(&items))
+          .try_to_vec()
+          .map_err(|e| HostError::AltBn128SerializationError { msg: format!("{}", e) })?;
+        Ok(result)
+    }else {
+        Err(HostError::AltBn128MaxNumberOfItemsExceeded)
+    }
 }
 
 /// Computes sum for signed g1 group elements on alt_bn128 curve
