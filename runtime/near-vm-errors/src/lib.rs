@@ -222,11 +222,13 @@ pub enum HostError {
     /// General errors for ECDSA recover.
     ECRecoverError { msg: String },
     /// Deserialization error for alt_bn128 functions
-    #[cfg(feature = "protocol_feature_alt_bn128")]
+    // #[cfg(feature = "protocol_feature_alt_bn128")]
     AltBn128DeserializationError { msg: String },
     /// Serialization error for alt_bn128 functions
-    #[cfg(feature = "protocol_feature_alt_bn128")]
+    // #[cfg(feature = "protocol_feature_alt_bn128")]
     AltBn128SerializationError { msg: String },
+    //Max Number Of items Exceeded 
+    AltBn128MaxNumberOfItemsExceeded,
 }
 
 #[derive(Debug, Clone, PartialEq, BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
@@ -425,10 +427,11 @@ impl std::fmt::Display for HostError {
             ReturnedValueLengthExceeded { length, limit } => write!(f, "The length of a returned value {} exceeds the limit {}", length, limit),
             ContractSizeExceeded { size, limit } => write!(f, "The size of a contract code in DeployContract action {} exceeds the limit {}", size, limit),
             Deprecated {method_name}=> write!(f, "Attempted to call deprecated host function {}", method_name),
-            #[cfg(feature = "protocol_feature_alt_bn128")]
+            // #[cfg(feature = "protocol_feature_alt_bn128")]
             AltBn128DeserializationError { msg } => write!(f, "AltBn128 deserialization error: {}", msg),
-            #[cfg(feature = "protocol_feature_alt_bn128")]
+            // #[cfg(feature = "protocol_feature_alt_bn128")]
             AltBn128SerializationError { msg } => write!(f, "AltBn128 serialization error: {}", msg),
+            AltBn128MaxNumberOfItemsExceeded  => write!(f, "AltBn128 Maximmum Number of items reached"),
             ECRecoverError { msg } => write!(f, "ECDSA recover error: {}", msg),
         }
     }

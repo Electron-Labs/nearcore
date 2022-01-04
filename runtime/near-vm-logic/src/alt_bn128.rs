@@ -259,7 +259,7 @@ pub fn alt_bn128_g1_multiexp(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
           .map_err(|e| HostError::AltBn128SerializationError { msg: format!("{}", e) })?;
         Ok(result)
     }else {
-        Err(HostError::AltBn128MaxNumberOfItemsExceeded)
+        Err(near_vm_errors::VMLogicError::HostError(HostError::AltBn128MaxNumberOfItemsExceeded) )
     }
 }
 
@@ -304,10 +304,11 @@ pub fn alt_bn128_g1_sum(data: &[u8]) -> crate::logic::Result<Vec<u8>> {
 
     let ResAcc = items.iter().fold(G1::zero(), |acc, &(sign, e)| {
         if sign {
-            acc -= e;
+             acc - e;
         } else {
-            acc += e;
+             acc +e;
         }
+        
     });
     let result = WrapG1(ResAcc)
         .try_to_vec()
